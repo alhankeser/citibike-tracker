@@ -98,7 +98,7 @@ class Kernel extends ConsoleKernel
                                         ->count();
                 if (!$locationCount) {
                     try {
-                        $response = $client->request('GET', 'maps/api/geocode/json?latlng=' . $station->latitude . ',' . $station->longitude . '&key=' . $gmapsApiKey);
+                        // $response = $client->request('GET', 'maps/api/geocode/json?latlng=' . $station->latitude . ',' . $station->longitude . '&key=' . $gmapsApiKey);
                         $geolocation = json_decode($response->getBody())->results;
                     } catch (Exception $e) {
                         $geolocation = false;
