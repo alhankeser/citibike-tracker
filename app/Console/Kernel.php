@@ -9,6 +9,7 @@ use GuzzleHttp\Client;
 use App\StationRaw;
 use Artisan;
 use DB;
+use Illuminate\Support\Arr;
 
 class Kernel extends ConsoleKernel
 {
@@ -98,41 +99,45 @@ class Kernel extends ConsoleKernel
                                         ->count();
                 if (!$locationCount) {
                     try {
-                        // $response = $client->request('GET', 'maps/api/geocode/json?latlng=' . $station->latitude . ',' . $station->longitude . '&key=' . $gmapsApiKey);
-                        $geolocation = json_decode($response->getBody())->results;
+                        $response = $client->request('GET', 'maps/api/geocode/json?latlng=' . $station->latitude . ',' . $station->longitude . '&key=' . $gmapsApiKey);
+                        $geocodes = json_decode($response->getBody())->results;
                     } catch (Exception $e) {
-                        $geolocation = false;
+                        $geocodes = [];
                     }
-                    if ($geolocation) {
-                        try {
-                            $zip = $geolocation[0] ? $geolocation[0]->address_components[3]->short_name : null;
-                        } catch (Exception $e) {
-                            $zip = null;
+                    
+                    $zip = false;
+                    $firstHood = false;
+                    $secondHood = false;
+                    $borough = false;
+                    foreach($geocodes as $geocode) {
+                        foreach($geocode->address_components as $geo_component) {
+                            $zipIndex = array_search('postal_code', $geo_component->types);
+                            $hoodIndex = array_search('neighborhood', $geo_component->types);
+                            $boroughIndex = array_search('sublocality', $geo_component->types);
+                            if ($zipIndex > -1 && !$zip) {
+                                $zip = $geo_component->short_name;
+                            }
+                            if ($hoodIndex > -1 && !$firstHood) {
+                                $firstHood = $geo_component->short_name;
+                            }
+                            elseif ($hoodIndex > -1 && $firstHood && 
+                                    !$secondHood && $firstHood != $geo_component->short_name) {
+                                $secondHood = $geo_component->short_name;
+                            }
+                            if ($boroughIndex > -1 && !$borough) {
+                                $borough = $geo_component->short_name;
+                            }
                         }
-                        try {
-                            $geo5 = $geolocation[5] ? $geolocation[5]->address_components[0]->short_name : null;
-                        } catch (Exception $e) {
-                            $geo5 = null;
-                        }
-                        try {
-                            $geo6 = $geolocation[6] ? $geolocation[6]->address_components[0]->short_name : null;
-                        } catch (Exception $e) {
-                            $geo6 = null;
-                        }
-                        try {
-                            $geo7 = $geolocation[7] ? $geolocation[7]->address_components[0]->short_name : null;
-                        } catch (Exception $e) {
-                            $geo7 = null;
-                        }
-                        
-                        DB::table('station_locations')->insert([
-                            'station_id' => $station->id,
-                            'zip' => $zip,
-                            'location_5' => $geo5,
-                            'location_6' => $geo6,
-                            'location_7' => $geo7
-                        ]);
                     }
+            
+                    DB::table('station_locations')->insert([
+                        'station_id' => $station->id,
+                        'zip' => $zip,
+                        'hood_1' => $firstHood,
+                        'hood_2' => $secondHood,
+                        'borough' => $borough
+                    ]);
+                    
                 }
             }
         }); // End getstations

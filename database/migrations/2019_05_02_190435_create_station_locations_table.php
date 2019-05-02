@@ -17,9 +17,9 @@ class CreateStationLocationsTable extends Migration
             $table->bigIncrements('id');
             $table->integer('station_id');
             $table->integer('zip');
-            $table->string('location_5');
-            $table->string('location_6');
-            $table->string('location_7');
+            $table->string('hood_1');
+            $table->string('hood_2');
+            $table->string('borough');
             $table->timestampTz('created_at')->useCurrent();
         });
     }
