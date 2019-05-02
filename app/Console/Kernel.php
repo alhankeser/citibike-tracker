@@ -98,12 +98,10 @@ class Kernel extends ConsoleKernel
                                         ->where('station_id', $station->id)
                                         ->count();
                 if (!$locationCount) {
-                    try {
-                        $response = $client->request('GET', 'maps/api/geocode/json?latlng=' . $station->latitude . ',' . $station->longitude . '&key=' . $gmapsApiKey);
-                        $geocodes = json_decode($response->getBody())->results;
-                    } catch (Exception $e) {
-                        $geocodes = [];
-                    }
+                    
+                    $response = $client->request('GET', 'maps/api/geocode/json?latlng=' . $station->latitude . ',' . $station->longitude . '&key=' . $gmapsApiKey);
+                    $geocodes = json_decode($response->getBody())->results;
+                    
                     
                     $zip = false;
                     $firstHood = false;
