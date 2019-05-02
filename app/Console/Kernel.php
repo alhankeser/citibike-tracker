@@ -82,7 +82,36 @@ class Kernel extends ConsoleKernel
                         'last_communication_time' => $station->lastCommunicationTime
                     ]
                 ]);
-            }            
-        });
+            }   
+            
+            $client = new Client([
+                'base_uri' => 'https://maps.googleapis.com/',
+                'timeout' => 10
+            ]); 
+            $gmapsApiKey = env('GMAPS_API_KEY');
+            $stations = DB::table('stations')
+                            ->where('id','<', env('GMAPS_ENV_LIMIT'))
+                            ->get();
+            foreach($stations as $station) {
+                $locationCount = DB::table('station_locations')
+                                        ->where('station_id', $station->id)
+                                        ->count();
+                if (!$locationCount) {
+                    $response = $client->request('GET', 'maps/api/geocode/json?latlng=' . $station->latitude . ',' . $station->longitude . '&key=' . $gmapsApiKey);
+                    $geolocation = json_decode($response->getBody())->results;
+                    $zip = $geolocation[0]->address_components[3]->short_name;
+                    $geo5 = $geolocation[5]->address_components[0]->short_name;
+                    $geo6 = $geolocation[6]->address_components[0]->short_name;
+                    $geo7 = $geolocation[7]->address_components[0]->short_name;
+                    DB::table('station_locations')->insert([
+                        'station_id' => $station->id,
+                        'zip' => $zip,
+                        'location_5' => $geo5,
+                        'location_6' => $geo6,
+                        'location_7' => $geo7
+                    ]);
+                }
+            }
+        }); // End getstations
     }
 }
