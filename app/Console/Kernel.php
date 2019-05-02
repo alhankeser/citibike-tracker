@@ -99,10 +99,12 @@ class Kernel extends ConsoleKernel
                 if (!$locationCount) {
                     $response = $client->request('GET', 'maps/api/geocode/json?latlng=' . $station->latitude . ',' . $station->longitude . '&key=' . $gmapsApiKey);
                     $geolocation = json_decode($response->getBody())->results;
-                    $zip = $geolocation[0]->address_components[3]->short_name;
-                    $geo5 = $geolocation[5]->address_components[0]->short_name;
-                    $geo6 = $geolocation[6]->address_components[0]->short_name;
-                    $geo7 = $geolocation[7]->address_components[0]->short_name;
+                    
+                    $zip = $geolocation[0] ? $geolocation[0]->address_components[3]->short_name : null;
+                    $geo5 = $geolocation[5] ? $geolocation[5]->address_components[0]->short_name : null;
+                    $geo6 = $geolocation[6] ? $geolocation[6]->address_components[0]->short_name : null;
+                    $geo7 = $geolocation[7] ? $geolocation[7]->address_components[0]->short_name : null;
+                    
                     DB::table('station_locations')->insert([
                         'station_id' => $station->id,
                         'zip' => $zip,
