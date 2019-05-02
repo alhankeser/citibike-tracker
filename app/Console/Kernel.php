@@ -49,10 +49,40 @@ class Kernel extends ConsoleKernel
                 'timeout' => 10
             ]); 
             $response = $client->request('GET','stations/stations.json');
-            $data = $response->getBody();
+            $data = json_decode($response->getBody());
             DB::table('stations_raw')->insert([
-                ['data' => $data]
+                ['data' => json_encode($data)]
             ]);
+            $id = DB::table('stations_raw')->max('id');
+            foreach($data->stationBeanList as $station) {
+                DB::table('stations')->updateOrInsert(
+                    ['id' => $station->id],
+                    [
+                        'name' => $station->stationName,
+                        'total_docks' => $station->totalDocks,
+                        'latitude' => $station->latitude,
+                        'longitude' => $station->longitude,
+                        'status' => $station->statusValue,
+                        'status_key' => $station->statusKey,
+                        'st_address_1' => $station->stAddress1,
+                        'st_address_2' => $station->stAddress2,
+                        'city' => $station->city,
+                        'postal_code' => $station->postalCode,
+                        'location' => $station->location,
+                        'altitude' => $station->altitude,
+                        'is_test_station' => $station->testStation,
+                        'land_mark' => $station->landMark
+                    ]
+                );
+                DB::table('docks')->insert([
+                    [
+                        'station_id' => $station->id,
+                        'available_bikes' => $station->availableBikes,
+                        'available_docks' => $station->availableDocks,
+                        'last_communication_time' => $station->lastCommunicationTime
+                    ]
+                ]);
+            }            
         });
     }
 }
