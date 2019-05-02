@@ -120,9 +120,9 @@ class Kernel extends ConsoleKernel
                             $geo6 = null;
                         }
                         try {
-                            $geo6 = $geolocation[6] ? $geolocation[6]->address_components[0]->short_name : null;
+                            $geo7 = $geolocation[7] ? $geolocation[7]->address_components[0]->short_name : null;
                         } catch (Exception $e) {
-                            $geo6 = null;
+                            $geo7 = null;
                         }
                         
                         DB::table('station_locations')->insert([
