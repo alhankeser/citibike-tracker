@@ -162,7 +162,7 @@ class Kernel extends ConsoleKernel
             }
         });
 
-        Artisan::command('transform:day', function () {
+        Artisan::command('transform:hour', function () {
             DB::statement('
                 INSERT INTO availability (station_id, station_name, latitude, longitude, zip, borough, hood, available_bikes, time_interval)
                 SELECT  stations.id as station_id,
@@ -180,8 +180,32 @@ class Kernel extends ConsoleKernel
                 LEFT JOIN station_locations locations
                 ON docks.station_id = locations.station_id
                 WHERE docks.station_id IS NOT NULL
-                    AND SUBTIME(docks.created_at, \'04:00:00\') > ADDTIME(CAST(SUBDATE(current_date, 1) AS DATETIME), \'04:00:00\')
-                    AND SUBTIME(docks.created_at, \'04:00:00\') < ADDTIME(CAST(current_date AS DATETIME), \'04:00:00\')
+                    AND docks.created_at > SUBTIME(CONCAT(CURDATE(), \' \', MAKETIME(HOUR(NOW()),0,0)), \'01:00:00\')
+                    AND docks.created_at < SUBTIME(CONCAT(CURDATE(), \' \', MAKETIME(HOUR(NOW()),0,0)), \'00:00:00\')
+                GROUP BY time_interval, stations.name, stations.id, locations.borough, hood, stations.latitude, stations.longitude, locations.zip
+            ');
+        });
+
+        Artisan::command('transform:all', function () {
+            DB::statement('
+                INSERT INTO availability (station_id, station_name, latitude, longitude, zip, borough, hood, available_bikes, time_interval)
+                SELECT  stations.id as station_id,
+                        stations.name as station_name,
+                        stations.latitude,
+                        stations.longitude,
+                        locations.zip,
+                        locations.borough,
+                        locations.hood_1 AS hood,
+                        MIN(docks.available_bikes) AS available_bikes,
+                        CAST(CAST(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(SUBTIME(docks.created_at, \'04:00:00\'))/ (60*15))*(60*15)) AS CHAR) AS DATETIME) AS time_interval
+                    FROM docks docks
+                JOIN stations stations
+                ON docks.station_id = stations.id
+                LEFT JOIN station_locations locations
+                ON docks.station_id = locations.station_id
+                WHERE docks.station_id IS NOT NULL
+                    AND docks.created_at > SUBTIME(CONCAT(CURDATE(), \' \', MAKETIME(HOUR(NOW()),0,0)), \'48:00:00\')
+                    AND docks.created_at < SUBTIME(CONCAT(CURDATE(), \' \', MAKETIME(HOUR(NOW()),0,0)), \'01:00:00\')
                 GROUP BY time_interval, stations.name, stations.id, locations.borough, hood, stations.latitude, stations.longitude, locations.zip
             ');
         });

@@ -14,7 +14,7 @@ class CreateAvailabilityTable extends Migration
     public function up()
     {
         Schema::create('availability', function (Blueprint $table) {
-            $table->bigIncrements('id');
+            $table->primary(['station_id', 'time_interval']);
             $table->integer('station_id');
             $table->string('station_name');
             $table->decimal('latitude', 10, 8)->nullable();
