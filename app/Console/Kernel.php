@@ -45,6 +45,10 @@ class Kernel extends ConsoleKernel
         require base_path('routes/console.php');
 
         Artisan::command('getstations', function () {
+            $this->call('extract:stations');
+        });
+
+        Artisan::command('extract:stations', function () {
             $client = new Client([
                 'base_uri' => 'https://feeds.citibikenyc.com/',
                 'timeout' => 10
@@ -84,14 +88,19 @@ class Kernel extends ConsoleKernel
                     ]
                 ]);
             }   
-            
+        }); // End getstations
+
+        Artisan::command('extract:locations', function () {
             $client = new Client([
                 'base_uri' => 'https://maps.googleapis.com/',
                 'timeout' => 10
             ]); 
             $gmapsApiKey = env('GMAPS_API_KEY');
-            $stations = DB::table('stations')
-                            ->where('id','<', (int)env('GMAPS_ENV_LIMIT'))
+            // $stations = DB::table('stations')
+            //                 ->where('id','<', (int)env('GMAPS_ENV_LIMIT'))
+            //                 ->get();
+                        $stations = DB::table('stations')
+                            ->where('id','=', 3192)
                             ->get();
             foreach($stations as $station) {
                 $locationCount = DB::table('station_locations')
@@ -101,17 +110,20 @@ class Kernel extends ConsoleKernel
                     
                     $response = $client->request('GET', 'maps/api/geocode/json?latlng=' . $station->latitude . ',' . $station->longitude . '&key=' . $gmapsApiKey);
                     $geocodes = json_decode($response->getBody())->results;
-                    
-                    
-                    $zip = false;
-                    $firstHood = false;
-                    $secondHood = false;
-                    $borough = false;
+
+                    $zip = null;
+                    $firstHood = null;
+                    $secondHood = null;
+                    $borough = null;
+                    $county = null;
+                    $state = null;
                     foreach($geocodes as $geocode) {
                         foreach($geocode->address_components as $geo_component) {
                             $zipIndex = array_search('postal_code', $geo_component->types);
                             $hoodIndex = array_search('neighborhood', $geo_component->types);
                             $boroughIndex = array_search('sublocality', $geo_component->types);
+                            $countyIndex = array_search('administrative_area_level_2', $geo_component->types);
+                            $stateIndex = array_search('administrative_area_level_1', $geo_component->types);
                             if ($zipIndex > -1 && !$zip) {
                                 $zip = $geo_component->short_name;
                             }
@@ -125,7 +137,20 @@ class Kernel extends ConsoleKernel
                             if ($boroughIndex > -1 && !$borough) {
                                 $borough = $geo_component->short_name;
                             }
+                            if ($countyIndex > -1 && !$county) {
+                                $county = $geo_component->short_name;
+                            }
+                            if ($stateIndex > -1 && !$state) {
+                                $state = $geo_component->long_name;
+                            }
                         }
+                    }
+
+                    if (!$borough) {
+                        $borough = $state;
+                    }
+                    if (!$firstHood) {
+                        $firstHood = $county;
                     }
             
                     DB::table('station_locations')->insert([
@@ -138,6 +163,30 @@ class Kernel extends ConsoleKernel
                     
                 }
             }
-        }); // End getstations
+        });
+
+        Artisan::command('transform:day', function () {
+            DB::statement('
+                INSERT INTO availability (station_id, station_name, latitude, longitude, zip, borough, hood, available_bikes, time_interval)
+                SELECT  stations.id as station_id,
+                        stations.name as station_name,
+                        stations.latitude,
+                        stations.longitude,
+                        locations.zip,
+                        locations.borough,
+                        locations.hood_1 AS hood,
+                        MIN(docks.available_bikes) AS available_bikes,
+                        CAST(CAST(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(SUBTIME(docks.created_at, \'04:00:00\'))/ (60*15))*(60*15)) AS CHAR) AS DATETIME) AS time_interval
+                    FROM docks docks
+                JOIN stations stations
+                ON docks.station_id = stations.id
+                LEFT JOIN station_locations locations
+                ON docks.station_id = locations.station_id
+                WHERE docks.station_id IS NOT NULL
+                    AND SUBTIME(docks.created_at, \'04:00:00\') > ADDTIME(CAST(SUBDATE(current_date, 1) AS DATETIME), \'04:00:00\')
+                    AND SUBTIME(docks.created_at, \'04:00:00\') < ADDTIME(CAST(current_date AS DATETIME), \'04:00:00\')
+                GROUP BY time_interval, stations.name, stations.id, locations.borough, hood, stations.latitude, stations.longitude, locations.zip
+            ');
+        });
     }
 }

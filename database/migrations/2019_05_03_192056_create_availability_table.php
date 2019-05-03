@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
 
-class CreateStationLocationsTable extends Migration
+class CreateAvailabilityTable extends Migration
 {
     /**
      * Run the migrations.
@@ -13,13 +13,17 @@ class CreateStationLocationsTable extends Migration
      */
     public function up()
     {
-        Schema::create('station_locations', function (Blueprint $table) {
+        Schema::create('availability', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->integer('station_id');
+            $table->string('station_name');
+            $table->decimal('latitude', 10, 8)->nullable();
+            $table->decimal('longitude', 10, 8)->nullable();
             $table->char('zip', 5)->nullable();
-            $table->string('hood_1')->nullable();
-            $table->string('hood_2')->nullable();
             $table->string('borough')->nullable();
+            $table->string('hood')->nullable();
+            $table->integer('available_bikes')->nullable();
+            $table->dateTime('time_interval');
             $table->timestampTz('created_at')->useCurrent();
         });
     }
@@ -31,6 +35,6 @@ class CreateStationLocationsTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('station_locations');
+        Schema::dropIfExists('availability');
     }
 }
