@@ -23,6 +23,7 @@ class CreateAvailabilityTable extends Migration
             $table->string('borough')->nullable();
             $table->string('hood')->nullable();
             $table->integer('available_bikes')->nullable();
+            $table->integer('available_docks')->nullable();
             $table->dateTime('time_interval');
             $table->timestampTz('created_at')->useCurrent();
         });
