@@ -84,7 +84,8 @@ class Kernel extends ConsoleKernel
                         'station_id' => $station->id,
                         'available_bikes' => $station->availableBikes,
                         'available_docks' => $station->availableDocks,
-                        'last_communication_time' => $station->lastCommunicationTime
+                        'last_communication_time' => $station->lastCommunicationTime,
+                        'station_status' => $station->statusValue
                     ]
                 ]);
             }   
@@ -164,9 +165,10 @@ class Kernel extends ConsoleKernel
 
         Artisan::command('transform:hour', function () {
             DB::statement('
-                INSERT INTO availability (station_id, station_name, latitude, longitude, zip, borough, hood, available_bikes, available_docks, time_interval)
+                INSERT INTO availability (station_id, station_name, station_status, latitude, longitude, zip, borough, hood, available_bikes, available_docks, time_interval)
                 SELECT  stations.id as station_id,
                         stations.name as station_name,
+                        docks.station_status as station_status,
                         stations.latitude,
                         stations.longitude,
                         locations.zip,
@@ -183,7 +185,7 @@ class Kernel extends ConsoleKernel
                 WHERE docks.station_id IS NOT NULL
                     AND docks.created_at > SUBTIME(CONCAT(CURDATE(), \' \', MAKETIME(HOUR(NOW()),0,0)), \'01:00:00\')
                     AND docks.created_at < SUBTIME(CONCAT(CURDATE(), \' \', MAKETIME(HOUR(NOW()),0,0)), \'00:00:00\')
-                GROUP BY time_interval, stations.name, stations.id, locations.borough, hood, stations.latitude, stations.longitude, locations.zip;
+                GROUP BY time_interval, stations.name, stations.id, station_status, locations.borough, hood, stations.latitude, stations.longitude, locations.zip;
             ');
         });
     }

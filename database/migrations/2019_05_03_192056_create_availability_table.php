@@ -17,6 +17,7 @@ class CreateAvailabilityTable extends Migration
             $table->primary(['station_id', 'time_interval']);
             $table->integer('station_id');
             $table->string('station_name');
+            $table->integer('station_status')->nullable();
             $table->decimal('latitude', 10, 8)->nullable();
             $table->decimal('longitude', 10, 8)->nullable();
             $table->char('zip', 5)->nullable();

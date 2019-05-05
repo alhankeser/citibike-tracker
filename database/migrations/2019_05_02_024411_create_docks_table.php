@@ -19,6 +19,7 @@ class CreateDocksTable extends Migration
             $table->integer('available_bikes')->nullable();
             $table->integer('available_docks')->nullable();
             $table->string('last_communication_time')->nullable();
+            $table->string('station_status')->nullable();
             $table->timestampTz('created_at')->useCurrent();
         });
 
