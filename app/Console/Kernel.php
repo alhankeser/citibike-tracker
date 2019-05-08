@@ -196,7 +196,7 @@ class Kernel extends ConsoleKernel
                     locations.hood_1 AS hood,
                     MIN(docks.available_bikes) AS available_bikes,
                     MAX(docks.available_docks) AS available_docks,
-                    CAST(CAST(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(docks.created_at)/ (60*15))*(60*15)) AS CHAR) AS DATETIME) AS time_interval,
+                    CAST(CAST(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(SUBTIME(docks.created_at, \'04:00:00\'))/ (60*15))*(60*15)) AS CHAR) AS DATETIME) AS time_interval,
                     weather.summary,
                     weather.precip_intensity,
                     weather.temperature,
@@ -211,8 +211,8 @@ class Kernel extends ConsoleKernel
             ON docks.station_id = locations.station_id
             LEFT JOIN weather_past weather
             ON locations.zip = weather.zip
-            AND HOUR(docks.created_at) = HOUR(weather.timestamp_est)
-            AND DATE(docks.created_at) = DATE(weather.timestamp_est)
+            AND HOUR(SUBTIME(docks.created_at, \'04:00:00\')) = HOUR(weather.timestamp_est)
+            AND DATE(SUBTIME(docks.created_at, \'04:00:00\')) = DATE(weather.timestamp_est)
             WHERE docks.station_id IS NOT NULL
                 AND docks.created_at > SUBTIME(CONCAT(CURDATE(), \' \', MAKETIME(HOUR(NOW()),0,0)), \'01:00:00\')
                 AND docks.created_at < SUBTIME(CONCAT(CURDATE(), \' \', MAKETIME(HOUR(NOW()),0,0)), \'00:00:00\')
@@ -251,7 +251,7 @@ class Kernel extends ConsoleKernel
                     locations.hood_1 AS hood,
                     MIN(docks.available_bikes) AS available_bikes,
                     MAX(docks.available_docks) AS available_docks,
-                    CAST(CAST(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(docks.created_at)/ (60*15))*(60*15)) AS CHAR) AS DATETIME) AS time_interval,
+                    CAST(CAST(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(SUBTIME(docks.created_at, \'04:00:00\'))/ (60*15))*(60*15)) AS CHAR) AS DATETIME) AS time_interval,
                     weather.summary,
                     weather.precip_intensity,
                     weather.temperature,
@@ -266,8 +266,8 @@ class Kernel extends ConsoleKernel
             ON docks.station_id = locations.station_id
             LEFT JOIN weather_past weather
             ON locations.zip = weather.zip
-            AND HOUR(docks.created_at) = HOUR(weather.timestamp_est)
-            AND DATE(docks.created_at) = DATE(weather.timestamp_est)
+            AND HOUR(SUBTIME(docks.created_at, \'04:00:00\')) = HOUR(weather.timestamp_est)
+            AND DATE(SUBTIME(docks.created_at, \'04:00:00\')) = DATE(weather.timestamp_est)
             WHERE docks.station_id IS NOT NULL
                 AND docks.created_at < SUBTIME(CONCAT(CURDATE(), \' \', MAKETIME(HOUR(NOW()),0,0)), \'00:00:00\')
             GROUP BY time_interval, stations.name, stations.id, station_status, locations.borough, hood, stations.latitude, stations.longitude, locations.zip, weather.temperature, weather.summary,weather.precip_intensity,weather.temperature,weather.humidity,weather.wind_speed,weather.wind_gust,weather.cloud_cover;
