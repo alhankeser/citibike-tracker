@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
 
-class CreateWeatherPastTable extends Migration
+class CreateWeatherTable extends Migration
 {
     /**
      * Run the migrations.
@@ -13,7 +13,7 @@ class CreateWeatherPastTable extends Migration
      */
     public function up()
     {
-        Schema::create('weather_past', function (Blueprint $table) {
+        Schema::create('weather', function (Blueprint $table) {
             $table->primary(['zip', 'timestamp_est']);
             $table->char('zip', 5);
             $table->timestamp('timestamp_est');
@@ -41,6 +41,6 @@ class CreateWeatherPastTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('weather_past');
+        Schema::dropIfExists('weather');
     }
 }

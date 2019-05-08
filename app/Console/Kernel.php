@@ -46,11 +46,8 @@ class Kernel extends ConsoleKernel
 
         require base_path('routes/console.php');
 
-        Artisan::command('getstations', function () {
-            $this->call('extract:stations');
-        });
 
-        Artisan::command('extract:stations', function () {
+        Artisan::command('get:docks', function () {
             $client = new Client([
                 'base_uri' => 'https://feeds.citibikenyc.com/',
                 'timeout' => 10
@@ -93,7 +90,7 @@ class Kernel extends ConsoleKernel
             }   
         });
 
-        Artisan::command('extract:locations', function () {
+        Artisan::command('get:locations', function () {
             $client = new Client([
                 'base_uri' => 'https://maps.googleapis.com/',
                 'timeout' => 10
@@ -165,6 +162,60 @@ class Kernel extends ConsoleKernel
             }
         });
 
+        Artisan::command('update:availability', function () {
+            DB::statement('
+            REPLACE INTO availability (
+                station_id, 
+                station_name, 
+                station_status, 
+                latitude, 
+                longitude, 
+                zip, 
+                borough, 
+                hood, 
+                available_bikes, 
+                available_docks, 
+                time_interval,
+                weather_summary,
+                precip_intensity,
+                temperature,
+                humidity,
+                wind_speed,
+                wind_gust,
+                cloud_cover)
+            SELECT  stations.id as station_id,
+                    stations.name as station_name,
+                    docks.station_status as station_status,
+                    stations.latitude,
+                    stations.longitude,
+                    locations.zip,
+                    locations.borough,
+                    locations.hood_1 AS hood,
+                    MIN(docks.available_bikes) AS available_bikes,
+                    MAX(docks.available_docks) AS available_docks,
+                    CAST(CAST(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(SUBTIME(docks.created_at, \'04:00:00\'))/ (60*15))*(60*15)) AS CHAR) AS DATETIME) AS time_interval,
+                    weather.summary,
+                    weather.precip_intensity,
+                    weather.temperature,
+                    weather.humidity,
+                    weather.wind_speed,
+                    weather.wind_gust,
+                    weather.cloud_cover
+                FROM docks
+            JOIN stations stations
+            ON docks.station_id = stations.id
+            LEFT JOIN station_locations locations
+            ON docks.station_id = locations.station_id
+            LEFT JOIN weather
+            ON locations.zip = weather.zip
+            AND HOUR(SUBTIME(docks.created_at, \'04:00:00\')) = HOUR(weather.timestamp_est)
+            AND DATE(SUBTIME(docks.created_at, \'04:00:00\')) = DATE(weather.timestamp_est)
+            WHERE docks.station_id IS NOT NULL
+                AND docks.created_at > SUBTIME(CONCAT(CURDATE(), \' \', MAKETIME(HOUR(NOW()),0,0)), \'00:15:00\')
+            GROUP BY time_interval, stations.name, stations.id, station_status, locations.borough, hood, stations.latitude, stations.longitude, locations.zip, weather.temperature, weather.summary,weather.precip_intensity,weather.temperature,weather.humidity,weather.wind_speed,weather.wind_gust,weather.cloud_cover;
+            ');
+        });
+
         Artisan::command('transform:hour', function () {
             DB::statement('
             INSERT INTO availability (
@@ -209,7 +260,7 @@ class Kernel extends ConsoleKernel
             ON docks.station_id = stations.id
             LEFT JOIN station_locations locations
             ON docks.station_id = locations.station_id
-            LEFT JOIN weather_past weather
+            LEFT JOIN weather
             ON locations.zip = weather.zip
             AND HOUR(SUBTIME(docks.created_at, \'04:00:00\')) = HOUR(weather.timestamp_est)
             AND DATE(SUBTIME(docks.created_at, \'04:00:00\')) = DATE(weather.timestamp_est)
@@ -264,7 +315,7 @@ class Kernel extends ConsoleKernel
             ON docks.station_id = stations.id
             LEFT JOIN station_locations locations
             ON docks.station_id = locations.station_id
-            LEFT JOIN weather_past weather
+            LEFT JOIN weather weather
             ON locations.zip = weather.zip
             AND HOUR(SUBTIME(docks.created_at, \'04:00:00\')) = HOUR(weather.timestamp_est)
             AND DATE(SUBTIME(docks.created_at, \'04:00:00\')) = DATE(weather.timestamp_est)
@@ -274,7 +325,7 @@ class Kernel extends ConsoleKernel
             ');
         });
 
-        Artisan::command('extract:weather {daysAgo}', function ($daysAgo) {
+        Artisan::command('get:weather {daysAgo}', function ($daysAgo) {
             $client = new Client([
                 'base_uri' => 'https://api.darksky.net/',
                 'timeout' => 10
@@ -294,10 +345,10 @@ class Kernel extends ConsoleKernel
                     $dt->setTimeZone(new DateTimeZone('America/New_York'));
                     $timestamp_est = $dt->format('Y-m-d H:i:s');
 
-                    DB::table('weather_past')->insert([
+                    DB::table('weather')->updateOrInsert(
+                        ['zip'               => $zip->zip,
+                        'timestamp_est'     => $timestamp_est],
                         [
-                            'zip'               => $zip->zip,
-                            'timestamp_est'     => $timestamp_est,
                             'summary'           => $hour->summary,
                             'icon'              => $hour->icon,
                             'precip_intensity'  => $hour->precipIntensity,
@@ -312,10 +363,11 @@ class Kernel extends ConsoleKernel
                             'visibility'        => $hour->visibility,
                             'ozone'             => $hour->ozone
                         ]
-                    ]);
+                    );
                 }
                 sleep(1);
             }
         });
+
     }
 }
