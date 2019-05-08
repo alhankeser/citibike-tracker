@@ -9,6 +9,8 @@ use GuzzleHttp\Client;
 use App\StationRaw;
 use Artisan;
 use DB;
+use DateTime;
+use DateTimeZone;
 use Illuminate\Support\Arr;
 
 class Kernel extends ConsoleKernel
@@ -89,7 +91,7 @@ class Kernel extends ConsoleKernel
                     ]
                 ]);
             }   
-        }); // End getstations
+        });
 
         Artisan::command('extract:locations', function () {
             $client = new Client([
@@ -165,28 +167,155 @@ class Kernel extends ConsoleKernel
 
         Artisan::command('transform:hour', function () {
             DB::statement('
-                INSERT INTO availability (station_id, station_name, station_status, latitude, longitude, zip, borough, hood, available_bikes, available_docks, time_interval)
-                SELECT  stations.id as station_id,
-                        stations.name as station_name,
-                        docks.station_status as station_status,
-                        stations.latitude,
-                        stations.longitude,
-                        locations.zip,
-                        locations.borough,
-                        locations.hood_1 AS hood,
-                        MIN(docks.available_bikes) AS available_bikes,
-                        MAX(docks.available_docks) AS available_docks,
-                        CAST(CAST(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(SUBTIME(docks.created_at, \'04:00:00\'))/ (60*15))*(60*15)) AS CHAR) AS DATETIME) AS time_interval
-                    FROM docks docks
-                JOIN stations stations
-                ON docks.station_id = stations.id
-                LEFT JOIN station_locations locations
-                ON docks.station_id = locations.station_id
-                WHERE docks.station_id IS NOT NULL
-                    AND docks.created_at > SUBTIME(CONCAT(CURDATE(), \' \', MAKETIME(HOUR(NOW()),0,0)), \'01:00:00\')
-                    AND docks.created_at < SUBTIME(CONCAT(CURDATE(), \' \', MAKETIME(HOUR(NOW()),0,0)), \'00:00:00\')
-                GROUP BY time_interval, stations.name, stations.id, station_status, locations.borough, hood, stations.latitude, stations.longitude, locations.zip;
+            INSERT INTO availability (
+                station_id, 
+                station_name, 
+                station_status, 
+                latitude, 
+                longitude, 
+                zip, 
+                borough, 
+                hood, 
+                available_bikes, 
+                available_docks, 
+                time_interval, 
+                weather_summary,
+                precip_intensity,
+                temperature,
+                humidity,
+                wind_speed,
+                wind_gust,
+                cloud_cover)
+            SELECT  stations.id as station_id,
+                    stations.name as station_name,
+                    docks.station_status as station_status,
+                    stations.latitude,
+                    stations.longitude,
+                    locations.zip,
+                    locations.borough,
+                    locations.hood_1 AS hood,
+                    MIN(docks.available_bikes) AS available_bikes,
+                    MAX(docks.available_docks) AS available_docks,
+                    CAST(CAST(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(docks.created_at)/ (60*15))*(60*15)) AS CHAR) AS DATETIME) AS time_interval,
+                    weather.summary,
+                    weather.precip_intensity,
+                    weather.temperature,
+                    weather.humidity,
+                    weather.wind_speed,
+                    weather.wind_gust,
+                    weather.cloud_cover
+                FROM docks
+            JOIN stations stations
+            ON docks.station_id = stations.id
+            LEFT JOIN station_locations locations
+            ON docks.station_id = locations.station_id
+            LEFT JOIN weather_past weather
+            ON locations.zip = weather.zip
+            AND HOUR(docks.created_at) = HOUR(weather.timestamp_est)
+            AND DATE(docks.created_at) = DATE(weather.timestamp_est)
+            WHERE docks.station_id IS NOT NULL
+                AND docks.created_at > SUBTIME(CONCAT(CURDATE(), \' \', MAKETIME(HOUR(NOW()),0,0)), \'01:00:00\')
+                AND docks.created_at < SUBTIME(CONCAT(CURDATE(), \' \', MAKETIME(HOUR(NOW()),0,0)), \'00:00:00\')
+            GROUP BY time_interval, stations.name, stations.id, station_status, locations.borough, hood, stations.latitude, stations.longitude, locations.zip, weather.temperature, weather.summary,weather.precip_intensity,weather.temperature,weather.humidity,weather.wind_speed,weather.wind_gust,weather.cloud_cover;
             ');
+        });
+
+        Artisan::command('transform:all', function () {
+            DB::statement('
+            INSERT INTO availability (
+                station_id, 
+                station_name, 
+                station_status, 
+                latitude, 
+                longitude, 
+                zip, 
+                borough, 
+                hood, 
+                available_bikes, 
+                available_docks, 
+                time_interval, 
+                weather_summary,
+                precip_intensity,
+                temperature,
+                humidity,
+                wind_speed,
+                wind_gust,
+                cloud_cover)
+            SELECT  stations.id as station_id,
+                    stations.name as station_name,
+                    docks.station_status as station_status,
+                    stations.latitude,
+                    stations.longitude,
+                    locations.zip,
+                    locations.borough,
+                    locations.hood_1 AS hood,
+                    MIN(docks.available_bikes) AS available_bikes,
+                    MAX(docks.available_docks) AS available_docks,
+                    CAST(CAST(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(docks.created_at)/ (60*15))*(60*15)) AS CHAR) AS DATETIME) AS time_interval,
+                    weather.summary,
+                    weather.precip_intensity,
+                    weather.temperature,
+                    weather.humidity,
+                    weather.wind_speed,
+                    weather.wind_gust,
+                    weather.cloud_cover
+                FROM docks
+            JOIN stations stations
+            ON docks.station_id = stations.id
+            LEFT JOIN station_locations locations
+            ON docks.station_id = locations.station_id
+            LEFT JOIN weather_past weather
+            ON locations.zip = weather.zip
+            AND HOUR(docks.created_at) = HOUR(weather.timestamp_est)
+            AND DATE(docks.created_at) = DATE(weather.timestamp_est)
+            WHERE docks.station_id IS NOT NULL
+                AND docks.created_at < SUBTIME(CONCAT(CURDATE(), \' \', MAKETIME(HOUR(NOW()),0,0)), \'00:00:00\')
+            GROUP BY time_interval, stations.name, stations.id, station_status, locations.borough, hood, stations.latitude, stations.longitude, locations.zip, weather.temperature, weather.summary,weather.precip_intensity,weather.temperature,weather.humidity,weather.wind_speed,weather.wind_gust,weather.cloud_cover;
+            ');
+        });
+
+        Artisan::command('extract:weather {daysAgo}', function ($daysAgo) {
+            $client = new Client([
+                'base_uri' => 'https://api.darksky.net/',
+                'timeout' => 10
+            ]);
+            $darkSkyKey = env('DARK_SKY_API_KEY');
+            $distinctZips = DB::table('station_locations')->select('zip')->distinct()->get();
+            foreach ($distinctZips as $zip) {
+                $stationId = DB::table('station_locations')->select('station_id')->where('zip',$zip->zip)->first()->station_id;
+                $sampleStation = DB::table('stations')->where('id', $stationId)->first();
+                $now = time();
+                $pastDate = strtotime("-{$daysAgo} day", $now);
+                $endPoint =  implode([$darkSkyKey, '/', $sampleStation->latitude, ',', $sampleStation->longitude, ',', $pastDate]);
+                $response = $client->request('GET','forecast/' . $endPoint);
+                $pastDateWeather = json_decode($response->getBody());
+                foreach ($pastDateWeather->hourly->data as $hour) {
+                    $dt = new DateTime('@' . $hour->time);
+                    $dt->setTimeZone(new DateTimeZone('America/New_York'));
+                    $timestamp_est = $dt->format('Y-m-d H:i:s');
+
+                    DB::table('weather_past')->insert([
+                        [
+                            'zip'               => $zip->zip,
+                            'timestamp_est'     => $timestamp_est,
+                            'summary'           => $hour->summary,
+                            'icon'              => $hour->icon,
+                            'precip_intensity'  => $hour->precipIntensity,
+                            'temperature'       => $hour->temperature,
+                            'apparent_temperature' => $hour->apparentTemperature,
+                            'dew_point'         => $hour->dewPoint,
+                            'humidity'          => $hour->humidity,
+                            'wind_speed'        => $hour->windSpeed,
+                            'wind_gust'         => $hour->windGust,
+                            'cloud_cover'       => $hour->cloudCover,
+                            'uv_index'          => $hour->uvIndex,
+                            'visibility'        => $hour->visibility,
+                            'ozone'             => $hour->ozone
+                        ]
+                    ]);
+                }
+                sleep(1);
+            }
         });
     }
 }
