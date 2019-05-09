@@ -218,8 +218,6 @@ class Kernel extends ConsoleKernel
             ');
         });
 
-
-
         Artisan::command('transform:hour', function () {
             DB::statement('
             INSERT INTO availability (
@@ -354,6 +352,9 @@ class Kernel extends ConsoleKernel
                     $hourAgoEst = $hourAgo->format('Y-m-d H:i:s');
                     $weatherStatus = $hourAgoEst > $timestampEst ? 'observed' : 'predicted';
 
+                    echo $timestampEst;
+                    echo '  ';
+
                     DB::table('weather')->updateOrInsert(
                         [   
                             'zip'               => $zip->zip,
@@ -379,6 +380,18 @@ class Kernel extends ConsoleKernel
                 }
                 sleep(1);
             }
+        });
+
+        Artisan::command('repair:weather', function () {
+            DB::statement('
+                delete weather 
+                from weather
+                left join weather wb
+                on weather.zip = wb.zip
+                and hour(weather.timestamp_est) = hour(wb.timestamp_est)
+                and day(weather.timestamp_est) = day(wb.timestamp_est)
+                where weather.timestamp_est > wb.timestamp_est;
+            ');
         });
 
     }
