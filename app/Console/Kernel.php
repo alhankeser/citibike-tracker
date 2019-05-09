@@ -182,7 +182,8 @@ class Kernel extends ConsoleKernel
                 humidity,
                 wind_speed,
                 wind_gust,
-                cloud_cover)
+                cloud_cover,
+                weather_status)
             SELECT  stations.id as station_id,
                     stations.name as station_name,
                     docks.station_status as station_status,
@@ -200,7 +201,8 @@ class Kernel extends ConsoleKernel
                     weather.humidity,
                     weather.wind_speed,
                     weather.wind_gust,
-                    weather.cloud_cover
+                    weather.cloud_cover,
+                    weather.status
                 FROM docks
             JOIN stations stations
             ON docks.station_id = stations.id
@@ -212,9 +214,11 @@ class Kernel extends ConsoleKernel
             AND DATE(SUBTIME(docks.created_at, \'04:00:00\')) = DATE(weather.timestamp_est)
             WHERE docks.station_id IS NOT NULL
                 AND docks.created_at > SUBTIME(CONCAT(CURDATE(), \' \', MAKETIME(HOUR(NOW()),0,0)), \'00:15:00\')
-            GROUP BY time_interval, stations.name, stations.id, station_status, locations.borough, hood, stations.latitude, stations.longitude, locations.zip, weather.temperature, weather.summary,weather.precip_intensity,weather.temperature,weather.humidity,weather.wind_speed,weather.wind_gust,weather.cloud_cover;
+            GROUP BY time_interval, stations.name, stations.id, station_status, locations.borough, hood, stations.latitude, stations.longitude, locations.zip, weather.temperature, weather.summary,weather.precip_intensity,weather.temperature,weather.humidity,weather.wind_speed,weather.wind_gust,weather.cloud_cover,weather.status;
             ');
         });
+
+
 
         Artisan::command('transform:hour', function () {
             DB::statement('
@@ -340,28 +344,36 @@ class Kernel extends ConsoleKernel
                 $endPoint =  implode([$darkSkyKey, '/', $sampleStation->latitude, ',', $sampleStation->longitude, ',', $pastDate]);
                 $response = $client->request('GET','forecast/' . $endPoint);
                 $pastDateWeather = json_decode($response->getBody());
-                foreach ($pastDateWeather->hourly->data as $hour) {
-                    $dt = new DateTime('@' . $hour->time);
-                    $dt->setTimeZone(new DateTimeZone('America/New_York'));
-                    $timestamp_est = $dt->format('Y-m-d H:i:s');
+                foreach ($pastDateWeather->hourly->data as $hourOfWeather) {
+                    $hourUnix = new DateTime('@' . $hourOfWeather->time);
+                    $hourUnix->setTimeZone(new DateTimeZone('America/New_York'));
+                    $timestampEst = $hourUnix->format('Y-m-d H:i:s');
+                    $hourAgo = strtotime("-1 hour", $now);
+                    $hourAgo = new DateTime('@' . $hourAgo);
+                    $hourAgo->setTimeZone(new DateTimeZone('America/New_York'));
+                    $hourAgoEst = $hourAgo->format('Y-m-d H:i:s');
+                    $weatherStatus = $hourAgoEst > $timestampEst ? 'observed' : 'predicted';
 
                     DB::table('weather')->updateOrInsert(
-                        ['zip'               => $zip->zip,
-                        'timestamp_est'     => $timestamp_est],
+                        [   
+                            'zip'               => $zip->zip,
+                            'timestamp_est'     => $timestampEst
+                        ],
                         [
-                            'summary'           => $hour->summary,
-                            'icon'              => $hour->icon,
-                            'precip_intensity'  => $hour->precipIntensity,
-                            'temperature'       => $hour->temperature,
-                            'apparent_temperature' => $hour->apparentTemperature,
-                            'dew_point'         => $hour->dewPoint,
-                            'humidity'          => $hour->humidity,
-                            'wind_speed'        => $hour->windSpeed,
-                            'wind_gust'         => $hour->windGust,
-                            'cloud_cover'       => $hour->cloudCover,
-                            'uv_index'          => $hour->uvIndex,
-                            'visibility'        => $hour->visibility,
-                            'ozone'             => $hour->ozone
+                            'summary'           => $hourOfWeather->summary,
+                            'icon'              => $hourOfWeather->icon,
+                            'precip_intensity'  => $hourOfWeather->precipIntensity,
+                            'temperature'       => $hourOfWeather->temperature,
+                            'apparent_temperature' => $hourOfWeather->apparentTemperature,
+                            'dew_point'         => $hourOfWeather->dewPoint,
+                            'humidity'          => $hourOfWeather->humidity,
+                            'wind_speed'        => $hourOfWeather->windSpeed,
+                            'wind_gust'         => $hourOfWeather->windGust,
+                            'cloud_cover'       => $hourOfWeather->cloudCover,
+                            'uv_index'          => $hourOfWeather->uvIndex,
+                            'visibility'        => $hourOfWeather->visibility,
+                            'ozone'             => $hourOfWeather->ozone,
+                            'status'            => $weatherStatus
                         ]
                     );
                 }

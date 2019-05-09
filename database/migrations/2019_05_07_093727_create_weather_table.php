@@ -31,6 +31,7 @@ class CreateWeatherTable extends Migration
             $table->float('visibility', 5, 2);
             $table->float('ozone', 5, 2);
             $table->timestampTz('created_at')->useCurrent();
+            $table->string('status')->nullable;
         });
     }
 

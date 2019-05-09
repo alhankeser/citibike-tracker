@@ -34,6 +34,7 @@ class CreateAvailabilityTable extends Migration
             $table->float('wind_speed', 5, 2)->nullable();
             $table->float('wind_gust', 5, 2)->nullable();
             $table->float('cloud_cover', 5, 2)->nullable();
+            $table->string('weather_status')->nullable();
         });
     }
 
