@@ -162,91 +162,118 @@ class Kernel extends ConsoleKernel
         });
 
         Artisan::command('update:availability:all', function() {
-            for ($i=0; $i < 220; $i++) {
+            for ($i=3; $i < 11; $i++) {
+                $hoursBack = $i*24;
                 try {
                     $this->call('update:availability', [
-                        'hoursBack' => $i
+                        'hoursBack' => $hoursBack
                     ]);
+                    sleep(5);
                 }
                 catch (Exception $e) {
+                    echo $i;
                     sleep(5);
+                    $i--;
                 }
             }
         });
         
         Artisan::command('update:availability {hoursBack}', function ($hoursBack) {
-            $hoursBackLessThan = $hoursBack-1;
+            $hoursBackLessThan = $hoursBack-24;
             DB::statement("
-                REPLACE INTO availability (
-                    station_id, 
-                    station_name, 
-                    station_status, 
-                    latitude, 
-                    longitude, 
-                    zip, 
-                    borough, 
-                    hood, 
-                    available_bikes, 
-                    available_docks, 
-                    time_interval,
-                    weather_summary,
-                    precip_intensity,
-                    temperature,
-                    humidity,
-                    wind_speed,
-                    wind_gust,
-                    cloud_cover,
-                    weather_status)
-                SELECT  stations.id as station_id,
-                        stations.name as station_name,
-                        docks.station_status as station_status,
-                        stations.latitude,
-                        stations.longitude,
-                        locations.zip,
-                        locations.borough,
-                        locations.hood_1 AS hood,
-                        MIN(docks.available_bikes) AS available_bikes,
-                        MAX(docks.available_docks) AS available_docks,
-                        CAST(CAST(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(docks.created_at)/ (60*15))*(60*15)) AS CHAR) AS DATETIME) AS time_interval,
-                        weather.summary,
-                        weather.precip_intensity,
-                        weather.temperature,
-                        weather.humidity,
-                        weather.wind_speed,
-                        weather.wind_gust,
-                        weather.cloud_cover,
-                        weather.status
-                    FROM docks
-                JOIN stations stations
-                ON docks.station_id = stations.id
-                LEFT JOIN station_locations locations
-                ON docks.station_id = locations.station_id
-                LEFT JOIN weather
-                ON locations.zip = weather.zip
-                AND HOUR(docks.created_at) = HOUR(weather.timestamp)
-                AND DATE(docks.created_at) = DATE(weather.timestamp)
-                WHERE docks.station_id IS NOT NULL
-                    AND docks.created_at > SUBTIME(CONCAT(CURDATE(), ' ', MAKETIME(HOUR(NOW()),0,0)), '{$hoursBack}:00:00')
-                    AND docks.created_at < SUBTIME(CONCAT(CURDATE(), ' ', MAKETIME(HOUR(NOW()),0,0)), '{$hoursBackLessThan}:00:00')
-                GROUP BY time_interval, stations.name, stations.id, station_status, locations.borough, hood, stations.latitude, stations.longitude, locations.zip, weather.temperature, weather.summary,weather.precip_intensity,weather.temperature,weather.humidity,weather.wind_speed,weather.wind_gust,weather.cloud_cover,weather.status;
-            ");
-
-            DB::statement("
-                update availability a
-                join weather w
-                    on a.zip = w.zip
-                    and hour(a.time_interval) = hour(w.timestamp)
-                    and day(a.time_interval) = day(w.timestamp)
-                set a.weather_status = w.status,
-                    a.weather_summary = w.summary,
-                    a.temperature = w.temperature,
-                    a.cloud_cover = w.cloud_cover,
-                    a.wind_gust = w.wind_gust,
-                    a.wind_speed = w.wind_speed,
-                    a.precip_intensity = w.precip_intensity,
-                    a.humidity = w.humidity
-                where a.weather_status != w.status
-            ;");
+                        INSERT INTO availability (
+                                        station_id, 
+                                        station_name, 
+                                        station_status, 
+                                        latitude, 
+                                        longitude, 
+                                        zip, 
+                                        borough, 
+                                        hood, 
+                                        available_bikes, 
+                                        available_docks, 
+                                        time_interval,
+                                        weather_summary,
+                                        precip_intensity,
+                                        temperature,
+                                        humidity,
+                                        wind_speed,
+                                        wind_gust,
+                                        cloud_cover,
+                                        weather_status
+                                    )
+                        SELECT  station_id,
+                                station_name,
+                                station_status,
+                                latitude,
+                                longitude,
+                                zip,
+                                borough,
+                                hood,
+                                available_bikes,
+                                available_docks,
+                                time_interval,
+                                weather_summary,
+                                precip_intensity,
+                                temperature,
+                                humidity,
+                                wind_speed,
+                                wind_gust,
+                                cloud_cover,
+                                weather_status
+                        FROM (
+                            SELECT  stations.id AS station_id,
+                                    stations.name AS station_name,
+                                    stations.status AS station_status,
+                                    stations.latitude AS latitude,
+                                    stations.longitude AS longitude,
+                                    locations.zip AS zip,
+                                    locations.borough AS borough,
+                                    locations.hood_1 AS hood,
+                                    MIN(docks.available_bikes) AS available_bikes,
+                                    MAX(docks.available_docks) AS available_docks,
+                                    CAST(CAST(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(docks.created_at)/ (60*15))*(60*15)) AS CHAR) AS DATETIME) AS time_interval,
+                                    weather.summary AS weather_summary,
+                                    weather.precip_intensity AS precip_intensity,
+                                    weather.temperature AS temperature,
+                                    weather.humidity AS humidity,
+                                    weather.wind_speed AS wind_speed,
+                                    weather.wind_gust AS wind_gust,
+                                    weather.cloud_cover AS cloud_cover,
+                                    weather.status AS weather_status
+                                FROM docks
+                            JOIN stations
+                                ON docks.station_id = stations.id
+                            LEFT JOIN station_locations locations
+                                ON docks.station_id = locations.station_id
+                            LEFT JOIN weather
+                                ON locations.zip = weather.zip
+                                AND HOUR(docks.created_at) = HOUR(weather.timestamp)
+                                AND DATE(docks.created_at) = DATE(weather.timestamp)
+                            WHERE docks.station_id IS NOT NULL
+                                AND docks.created_at > SUBTIME(CONCAT(CURDATE(), ' ', MAKETIME(HOUR(NOW()),0,0)), '{$hoursBack}:00:00')
+                                AND docks.created_at < SUBTIME(CONCAT(CURDATE(), ' ', MAKETIME(HOUR(NOW()),0,0)), '{$hoursBackLessThan}:00:00')
+                            GROUP BY time_interval, stations.name, stations.id, stations.status, locations.borough, locations.hood_1, stations.latitude, stations.longitude, locations.zip, weather.temperature, weather.summary,weather.precip_intensity,weather.temperature,weather.humidity,weather.wind_speed,weather.wind_gust,weather.cloud_cover,weather.status
+                        ) temp
+                        ON DUPLICATE KEY UPDATE 
+                            station_status = temp.station_status,
+                            latitude = temp.latitude, 
+                            longitude = temp.longitude, 
+                            zip = temp.zip, 
+                            borough = temp.borough, 
+                            hood = temp.hood, 
+                            available_bikes = temp.available_bikes, 
+                            available_docks = temp.available_docks, 
+                            weather_summary = temp.weather_summary,
+                            precip_intensity = temp.precip_intensity,
+                            temperature = temp.temperature,
+                            humidity = temp.humidity,
+                            wind_speed = temp.wind_speed,
+                            wind_gust = temp.wind_gust,
+                            cloud_cover = temp.cloud_cover,
+                            weather_status = temp.weather_status
+                    ;");
+            
         });
 
         Artisan::command('get:weather {daysAgo}', function ($daysAgo) {
@@ -330,19 +357,23 @@ class Kernel extends ConsoleKernel
                 }
                 sleep(1);
             }
+            DB::statement("
+                update availability a
+                join weather w
+                    on a.zip = w.zip
+                    and hour(a.time_interval) = hour(w.timestamp)
+                    and day(a.time_interval) = day(w.timestamp)
+                set a.weather_status = w.status,
+                    a.weather_summary = w.summary,
+                    a.temperature = w.temperature,
+                    a.cloud_cover = w.cloud_cover,
+                    a.wind_gust = w.wind_gust,
+                    a.wind_speed = w.wind_speed,
+                    a.precip_intensity = w.precip_intensity,
+                    a.humidity = w.humidity
+                where a.weather_status != w.status
+            ;");
         });
-
-        // Artisan::command('repair:weather', function () {
-        //     DB::statement('
-        //         delete weather 
-        //         from weather
-        //         left join weather wb
-        //         on weather.zip = wb.zip
-        //         and hour(weather.timestamp) = hour(wb.timestamp)
-        //         and day(weather.timestamp) = day(wb.timestamp)
-        //         where weather.timestamp > wb.timestamp;
-        //     ');
-        // });
 
     }
 }
