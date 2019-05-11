@@ -95,9 +95,7 @@ class Kernel extends ConsoleKernel
                 'timeout' => 10
             ]); 
             $gmapsApiKey = env('GMAPS_API_KEY');
-            $stations = DB::table('stations')
-                            ->where('id','<', (int)env('GMAPS_ENV_LIMIT'))
-                            ->get();
+            $stations = DB::table('stations')->get();
             foreach($stations as $station) {
                 $locationCount = DB::table('station_locations')
                                         ->where('station_id', $station->id)
