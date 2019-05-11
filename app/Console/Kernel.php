@@ -162,24 +162,24 @@ class Kernel extends ConsoleKernel
         });
 
         Artisan::command('update:availability:all', function() {
-            for ($i=3; $i < 11; $i++) {
-                $hoursBack = $i*24;
-                try {
-                    $this->call('update:availability', [
-                        'hoursBack' => $hoursBack
-                    ]);
-                    sleep(5);
-                }
-                catch (Exception $e) {
-                    echo $i;
-                    sleep(5);
-                    $i--;
-                }
-            }
+            // for ($i=3; $i < 11; $i++) {
+            //     $hoursBack = $i*24;
+            //     try {
+            //         $this->call('update:availability', [
+            //             'hoursBack' => $hoursBack
+            //         ]);
+            //         sleep(5);
+            //     }
+            //     catch (Exception $e) {
+            //         echo $i;
+            //         sleep(5);
+            //         $i--;
+            //     }
+            // }
         });
         
         Artisan::command('update:availability {hoursBack}', function ($hoursBack) {
-            $hoursBackLessThan = $hoursBack-24;
+            $hoursBackLessThan = $hoursBack-1;
             DB::statement("
                         INSERT INTO availability (
                                         station_id, 
@@ -224,7 +224,7 @@ class Kernel extends ConsoleKernel
                         FROM (
                             SELECT  stations.id AS station_id,
                                     stations.name AS station_name,
-                                    stations.status AS station_status,
+                                    docks.station_status AS station_status,
                                     stations.latitude AS latitude,
                                     stations.longitude AS longitude,
                                     locations.zip AS zip,
@@ -253,7 +253,7 @@ class Kernel extends ConsoleKernel
                             WHERE docks.station_id IS NOT NULL
                                 AND docks.created_at > SUBTIME(CONCAT(CURDATE(), ' ', MAKETIME(HOUR(NOW()),0,0)), '{$hoursBack}:00:00')
                                 AND docks.created_at < SUBTIME(CONCAT(CURDATE(), ' ', MAKETIME(HOUR(NOW()),0,0)), '{$hoursBackLessThan}:00:00')
-                            GROUP BY time_interval, stations.name, stations.id, stations.status, locations.borough, locations.hood_1, stations.latitude, stations.longitude, locations.zip, weather.temperature, weather.summary,weather.precip_intensity,weather.temperature,weather.humidity,weather.wind_speed,weather.wind_gust,weather.cloud_cover,weather.status
+                            GROUP BY time_interval, stations.name, stations.id, docks.station_status, locations.borough, locations.hood_1, stations.latitude, stations.longitude, locations.zip, weather.temperature, weather.summary,weather.precip_intensity,weather.temperature,weather.humidity,weather.wind_speed,weather.wind_gust,weather.cloud_cover,weather.status
                         ) temp
                         ON DUPLICATE KEY UPDATE 
                             station_status = temp.station_status,
