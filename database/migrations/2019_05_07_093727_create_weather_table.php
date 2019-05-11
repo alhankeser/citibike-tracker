@@ -16,7 +16,7 @@ class CreateWeatherTable extends Migration
         Schema::create('weather', function (Blueprint $table) {
             $table->primary(['zip', 'timestamp_est']);
             $table->char('zip', 5);
-            $table->timestamp('timestamp_est');
+            $table->timestamp('timestamp');
             $table->string('summary')->nullable();
             $table->string('icon')->nullable();
             $table->float('precip_intensity', 5, 2);
@@ -31,6 +31,7 @@ class CreateWeatherTable extends Migration
             $table->float('visibility', 5, 2);
             $table->float('ozone', 5, 2);
             $table->timestampTz('created_at')->useCurrent();
+            $table->timestampTz('updated_at')->default(DB::raw('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'));
             $table->string('status')->nullable;
         });
     }

@@ -30,6 +30,7 @@ class CreateStationsTable extends Migration
             $table->string('city')->nullable();
             $table->boolean('is_test_station')->nullable();
             $table->timestampTz('created_at')->useCurrent();
+            $table->timestampTz('updated_at')->default(DB::raw('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'));
         });
     }
 

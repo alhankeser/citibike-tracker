@@ -35,6 +35,7 @@ class CreateAvailabilityTable extends Migration
             $table->float('wind_gust', 5, 2)->nullable();
             $table->float('cloud_cover', 5, 2)->nullable();
             $table->string('weather_status')->nullable();
+            $table->timestampTz('updated_at')->default(DB::raw('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'));
         });
     }
 
