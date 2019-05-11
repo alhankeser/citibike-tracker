@@ -163,10 +163,14 @@ class Kernel extends ConsoleKernel
 
         Artisan::command('update:availability:all', function() {
             for ($i=0; $i < 220; $i++) {
-                $this->call('update:availability', [
-                    'hoursBack' => $i
-                ]);
-                sleep(1);
+                try {
+                    $this->call('update:availability', [
+                        'hoursBack' => $i
+                    ]);
+                }
+                catch (Exception $e) {
+                    sleep(5);
+                }
             }
         });
         
