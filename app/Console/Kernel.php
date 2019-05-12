@@ -270,8 +270,7 @@ class Kernel extends ConsoleKernel
                             wind_gust = temp.wind_gust,
                             cloud_cover = temp.cloud_cover,
                             weather_status = temp.weather_status
-                    ;");
-            
+            ;"); 
         });
 
         Artisan::command('get:weather {daysAgo}', function ($daysAgo) {
@@ -355,6 +354,9 @@ class Kernel extends ConsoleKernel
                 }
                 sleep(1);
             }
+        });
+
+        Artisan::command('update:weather', function () {
             DB::statement("
                 update availability a
                 join weather w
@@ -370,6 +372,7 @@ class Kernel extends ConsoleKernel
                     a.precip_intensity = w.precip_intensity,
                     a.humidity = w.humidity
                 where a.weather_status != w.status
+                    or a.temperature != w.temperature
             ;");
         });
 
