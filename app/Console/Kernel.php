@@ -358,21 +358,24 @@ class Kernel extends ConsoleKernel
 
         Artisan::command('update:weather', function () {
             DB::statement("
-                update availability a
-                join weather w
+            update availability a
+                left join weather w 
                     on a.zip = w.zip
-                    and hour(a.time_interval) = hour(w.timestamp)
                     and day(a.time_interval) = day(w.timestamp)
-                set a.weather_status = w.status,
+                    and hour(a.time_interval) = hour(w.timestamp)
+                SET
                     a.weather_summary = w.summary,
-                    a.temperature = w.temperature,
-                    a.cloud_cover = w.cloud_cover,
-                    a.wind_gust = w.wind_gust,
-                    a.wind_speed = w.wind_speed,
                     a.precip_intensity = w.precip_intensity,
-                    a.humidity = w.humidity
-                where a.weather_status != w.status
-                    or a.temperature != w.temperature
+                    a.temperature = w.temperature,
+                    a.humidity = w.humidity,
+                    a.wind_speed = w.wind_speed,
+                    a.wind_gust = w.wind_gust,
+                    a.cloud_cover = w.cloud_cover,
+                    a.weather_status = w.status
+                where weather_status = 'predicted'
+                    and a.time_interval < now()
+                and (a.weather_status != w.status
+                    or a.temperature != w.temperature)
             ;");
         });
 
